@@ -154,6 +154,22 @@ def render(
     else:
         stream.write(f"\n{st.green('Everything you load gets used.')}\n")
 
+    # Reported, but kept out of the total above: there is no file to delete, so
+    # counting them would inflate a saving nobody can actually collect.
+    builtins = report.dead_builtins
+    if builtins:
+        chars = sum(i.chars for i in builtins)
+        names = ", ".join(i.name for i in sorted(builtins, key=lambda i: -i.chars)[:4])
+        if len(builtins) > 4:
+            names += f", and {len(builtins) - 4} more"
+        stream.write(
+            st.dim(
+                f"\n{len(builtins)} built-in agent(s) also went unused "
+                f"({chars:,} chars): {names}.\n"
+                "Not counted above — these ship with Claude Code and cannot be removed.\n"
+            )
+        )
+
     if report.sessions < MEANINGFUL_SESSIONS:
         stream.write(
             st.yellow(
@@ -183,11 +199,14 @@ def render(
                 f"  {st.dim(f'avg {hook.average_ms:.0f}ms')}{errors}\n"
             )
 
+    # "of session time" read as time spent working; it is the span from each
+    # session's first message to its last, summed, so an overnight gap counts in
+    # full. "spanning" is the honest word for that.
     stream.write(
         st.dim(
             f"\n{human_count(report.total_tool_calls)} tool calls · "
             f"{human_count(report.total_output_tokens)} output tokens · "
-            f"{human_duration(report.total_seconds)} of session time\n"
+            f"{report.sessions} session(s) spanning {human_duration(report.total_seconds)}\n"
         )
     )
     if report.sessions_without_inventory:
@@ -207,6 +226,7 @@ def render_json(report: Report, stream: TextIO | None = None) -> None:
             "sessions": report.sessions,
             "projects": sorted(report.projects),
             "dead_items": len(report.dead),
+            "dead_builtin_items": len(report.dead_builtins),
             "dead_chars_per_session": report.dead_chars_per_session,
             "dead_tokens_per_session": report.dead_chars_per_session // CHARS_PER_TOKEN,
             "total_chars_per_session": report.total_chars_per_session,
@@ -214,7 +234,8 @@ def render_json(report: Report, stream: TextIO | None = None) -> None:
             "tool_calls": report.total_tool_calls,
             "output_tokens": report.total_output_tokens,
             "cache_read_tokens": report.total_cache_read_tokens,
-            "session_seconds": round(report.total_seconds, 1),
+            # Elapsed span per session, summed. Includes idle time.
+            "session_span_seconds": round(report.total_seconds, 1),
         },
         "items": [
             {
@@ -226,6 +247,7 @@ def render_json(report: Report, stream: TextIO | None = None) -> None:
                 "sessions_used": i.sessions_used,
                 "calls": i.calls,
                 "dead": i.is_dead,
+                "builtin": i.is_builtin,
             }
             for i in report.items
         ],

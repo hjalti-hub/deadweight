@@ -37,6 +37,19 @@ def match_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
+#: Subagents Claude Code ships with. They occupy context like everything else,
+#: but there is no file to delete, so counting them toward "you could remove
+#: this" overstates what is actually recoverable. They are still reported - just
+#: separately, and not in the headline total.
+#:
+#: Deliberately short. A name belongs here only if it genuinely cannot be
+#: removed, because a wrong entry hides real waste instead of merely adding a
+#: row. Anything uncertain is better left as removable.
+BUILTIN_AGENTS = frozenset(
+    match_key(name) for name in ("general-purpose", "Explore", "Plan", "claude", "statusline-setup")
+)
+
+
 @dataclass
 class Item:
     """One configured thing, with what it costs and what it did."""
@@ -63,6 +76,16 @@ class Item:
     @property
     def is_dead(self) -> bool:
         return self.calls == 0 and self.sessions_present > 0
+
+    @property
+    def is_builtin(self) -> bool:
+        """True when nothing the user can edit would remove this."""
+        return self.kind == "agent" and match_key(self.name) in BUILTIN_AGENTS
+
+    @property
+    def is_removable_dead(self) -> bool:
+        """Unused *and* something the user could actually delete."""
+        return self.is_dead and not self.is_builtin
 
     @property
     def calls_per_session(self) -> float:
@@ -106,7 +129,19 @@ class Report:
 
     @property
     def dead(self) -> list[Item]:
-        return [i for i in self.items if i.is_dead]
+        """Unused items the user could actually remove.
+
+        Built-ins are excluded here and reported by :attr:`dead_builtins`
+        instead. Telling someone to delete a subagent that ships with Claude
+        Code wastes their time, and counting it in the total inflates a number
+        whose whole value is that it is honest.
+        """
+        return [i for i in self.items if i.is_removable_dead]
+
+    @property
+    def dead_builtins(self) -> list[Item]:
+        """Unused, but nothing the user can do about it."""
+        return [i for i in self.items if i.is_dead and i.is_builtin]
 
     @property
     def used(self) -> list[Item]:
@@ -114,7 +149,7 @@ class Report:
 
     @property
     def dead_chars_per_session(self) -> int:
-        """Context spent every session on things that never did anything.
+        """Context spent every session on removable things that never did anything.
 
         Averaged over the sessions that actually loaded each item, so an item
         present in only half the sessions counts for half its size.

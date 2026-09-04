@@ -104,6 +104,56 @@ class DeadDetection(unittest.TestCase):
         self.assertFalse(item.is_dead)
 
 
+class BuiltIns(unittest.TestCase):
+    """Unused built-in agents are reported, but never as recoverable savings."""
+
+    def test_builtin_agent_is_not_counted_as_removable(self):
+        report = build([session(listings={"agent": listing("agent", {"Explore": 500})})])
+        self.assertEqual(report.dead, [])
+        self.assertEqual([i.name for i in report.dead_builtins], ["Explore"])
+        self.assertEqual(report.dead_chars_per_session, 0)
+
+    def test_builtin_names_are_matched_loosely(self):
+        for name in ("general-purpose", "General Purpose", "general_purpose"):
+            with self.subTest(name=name):
+                report = build([session(listings={"agent": listing("agent", {name: 100})})])
+                self.assertEqual(report.dead, [])
+
+    def test_a_user_agent_is_still_removable(self):
+        report = build([session(listings={"agent": listing("agent", {"Paid Media Auditor": 400})})])
+        self.assertEqual([i.name for i in report.dead], ["Paid Media Auditor"])
+
+    def test_a_skill_named_like_a_builtin_agent_is_still_removable(self):
+        """The exemption is scoped to agents; skills are always deletable."""
+        report = build([session(listings={"skill": listing("skill", {"Explore": 400})})])
+        self.assertEqual([i.name for i in report.dead], ["Explore"])
+
+    def test_a_used_builtin_is_neither_dead_nor_listed(self):
+        report = build(
+            [
+                session(
+                    listings={"agent": listing("agent", {"Explore": 500})},
+                    agent_calls={"Explore": 2},
+                )
+            ]
+        )
+        self.assertEqual(report.dead, [])
+        self.assertEqual(report.dead_builtins, [])
+
+    def test_share_excludes_builtins_from_the_numerator(self):
+        report = build(
+            [
+                session(
+                    listings={
+                        "agent": listing("agent", {"Explore": 500}),
+                        "skill": listing("skill", {"mine": 500}),
+                    }
+                )
+            ]
+        )
+        self.assertAlmostEqual(report.dead_share, 0.5)
+
+
 class CostMath(unittest.TestCase):
     def test_size_is_not_summed_across_sessions(self):
         """An item's size is a property of the item, not of how often it loads."""
@@ -221,6 +271,29 @@ class Rendering(unittest.TestCase):
         self.assertEqual(share(0.999), "99.9%")
         self.assertEqual(share(1.0), "100%")
         self.assertEqual(share(0.5), "50%")
+
+    def test_builtin_line_is_shown_but_kept_out_of_the_total(self):
+        report = build(
+            [
+                session(
+                    listings={
+                        "agent": listing("agent", {"Explore": 500}),
+                        "skill": listing("skill", {"mine": 100}),
+                    }
+                )
+            ]
+        )
+        output = self.render(report)
+        self.assertIn("built-in agent(s) also went unused", output)
+        self.assertIn("cannot be removed", output)
+        # The headline saving counts only the removable skill.
+        self.assertIn("100 chars", output)
+
+    def test_duration_is_labelled_as_a_span_not_as_time_worked(self):
+        report = build([session(listings={"skill": listing("skill", {"a": 100})})])
+        output = self.render(report)
+        self.assertIn("spanning", output)
+        self.assertNotIn("of session time", output)
 
     def test_json_shape(self):
         report = build(
