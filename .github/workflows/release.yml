@@ -1,0 +1,118 @@
+name: release
+
+# Publishes to PyPI when a version tag is pushed:
+#
+#     git tag v0.1.1 && git push origin v0.1.1
+#
+# Uses PyPI trusted publishing, so no API token is stored in this repository.
+# One-time setup on PyPI: Your projects -> deadweight -> Publishing -> Add a new
+# publisher, GitHub, with owner `hjalti-hub`, repository `deadweight`, workflow
+# `release.yml`, environment `pypi`. Before the first release exists, add the
+# same values under Account -> Publishing as a *pending* publisher.
+#
+# A PyPI version can never be reused or replaced. Everything that can be checked
+# is therefore checked before the upload step runs, not after.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Tag must match the version in pyproject.toml
+        # The classic release mistake: tag v0.2.0 while pyproject still says
+        # 0.1.0. Since the version is what PyPI records, and it is permanent,
+        # a mismatch is worth failing on before anything is built.
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "tag: $tag"
+          echo "pyproject.toml: $version"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match project version ${version}. Fix pyproject.toml or retag; PyPI versions cannot be reused."
+            exit 1
+          fi
+
+      - name: Tests must pass before anything is published
+        run: python -m unittest discover -s tests -t . -v
+
+      - name: Build and check the distributions
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: The built wheel must actually install and run
+        # Building successfully is not the same as being usable. This installs
+        # the artifact exactly as a user would and exercises the entry point,
+        # including the case where the machine has no Claude Code history.
+        run: |
+          python -m venv /tmp/verify
+          /tmp/verify/bin/pip install --quiet dist/*.whl
+          /tmp/verify/bin/deadweight --version
+          empty=$(mktemp -d)
+          /tmp/verify/bin/deadweight --root "$empty" | grep -q "No Claude Code sessions found" \
+            || { echo "::error::unhelpful output when there is no history"; exit 1; }
+          /tmp/verify/bin/deadweight --root "$empty" --json | python -c "
+          import json, sys
+          summary = json.load(sys.stdin)['summary']
+          assert summary['sessions'] == 0, summary
+          "
+
+      - name: No third-party runtime dependencies
+        # Reading local files should never require a dependency tree, and the
+        # README says so. Keep it enforced.
+        run: |
+          deps=$(/tmp/verify/bin/pip list --format=freeze | grep -v -E "^(pip|setuptools|wheel|deadweight)==" || true)
+          if [ -n "$deps" ]; then
+            echo "::error::unexpected runtime dependencies: $deps"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # The only permission the upload needs. No secret is read, and none is
+      # stored: PyPI verifies a short-lived OIDC token minted for this workflow.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes
