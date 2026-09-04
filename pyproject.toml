@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deadweight"
+version = "0.1.0"
+description = "Find the parts of your Claude Code setup that cost context on every session and never do any work."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["claude", "claude-code", "context", "tokens", "mcp", "skills", "profiler"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Quality Assurance",
+]
+# Empty on purpose: this reads local files and must run anywhere python3 does.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/hjalti-hub/deadweight"
+Issues = "https://github.com/hjalti-hub/deadweight/issues"
+
+[project.scripts]
+deadweight = "deadweight.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["deadweight*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]
