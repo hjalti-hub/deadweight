@@ -160,6 +160,12 @@ and shows what *doesn't* fire, and what that costs you.
 
 Static proof, and empirical evidence.
 
+[whyrule](https://github.com/hjalti-hub/whyrule) applies the same static half to
+the instructions themselves: the CLAUDE.md and `.claude/rules/` files Claude
+loads every session, and the ones it never receives — text stripped before
+injection, imports resolving to nothing, rules that contradict each other once
+they are concatenated.
+
 ## Contributing
 
 The transcript format isn't a published API, so the most useful contribution is a
