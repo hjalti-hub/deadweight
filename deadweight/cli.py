@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 from pathlib import Path
 
 from .analyze import build
@@ -74,7 +76,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    try:
+        return _run(build_parser().parse_args(argv))
+    except BrokenPipeError:
+        # `deadweight | head`, or quitting `less` early, closes the pipe while
+        # we are still writing. That is normal; a traceback is not. Python
+        # flushes the standard streams at shutdown and would raise again, so
+        # stdout is pointed at devnull first. Recipe from the Python docs:
+        # https://docs.python.org/3/library/signal.html#note-on-sigpipe
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        return 0
+
+
+def _run(args: argparse.Namespace) -> int:
 
     sessions = load(
         args.root,

@@ -319,3 +319,39 @@ class Rendering(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PipedOutput(unittest.TestCase):
+    """Regression: piping into `head` printed a BrokenPipeError traceback.
+
+    Uses a real shell pipeline into real `head`. A Python reader is not enough:
+    it drains the pipe buffer instead of closing it early, and so passes even
+    when the fix is absent. The writer's stderr goes to a file so it can be
+    inspected apart from the pipeline's.
+    """
+
+    def _stderr_of_piped(self, args: str) -> str:
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        repo = Path(__file__).resolve().parent.parent
+        with tempfile.NamedTemporaryFile(suffix=".err") as err:
+            subprocess.run(
+                f"{sys.executable} -m deadweight {args} 2>{err.name} | head -1",
+                shell=True,
+                cwd=repo,
+                stdout=subprocess.DEVNULL,
+            )
+            return Path(err.name).read_text()
+
+    def test_report_survives_a_closed_pipe(self):
+        stderr = self._stderr_of_piped("--used --all")
+        self.assertNotIn("BrokenPipeError", stderr)
+        self.assertNotIn("Traceback", stderr)
+
+    def test_json_survives_a_closed_pipe(self):
+        stderr = self._stderr_of_piped("--json")
+        self.assertNotIn("BrokenPipeError", stderr)
+        self.assertNotIn("Traceback", stderr)
