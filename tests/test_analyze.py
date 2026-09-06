@@ -317,17 +317,15 @@ class Rendering(unittest.TestCase):
         self.assertEqual(payload["hooks"][0]["command"], "fmt.sh")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PipedOutput(unittest.TestCase):
     """Regression: piping into `head` printed a BrokenPipeError traceback.
 
-    Uses a real shell pipeline into real `head`. A Python reader is not enough:
-    it drains the pipe buffer instead of closing it early, and so passes even
-    when the fix is absent. The writer's stderr goes to a file so it can be
-    inspected apart from the pipeline's.
+    The pipeline tests use a real shell pipeline into real `head`. A Python
+    reader is not enough: it drains the pipe buffer instead of closing it
+    early, and so passes even when the fix is absent.
+
+    They are still not the whole story - see the unflushed-buffer test at the
+    end, which is the one that holds.
     """
 
     def _stderr_of_piped(self, args: str) -> str:
@@ -355,3 +353,45 @@ class PipedOutput(unittest.TestCase):
         stderr = self._stderr_of_piped("--json")
         self.assertNotIn("BrokenPipeError", stderr)
         self.assertNotIn("Traceback", stderr)
+
+    def test_output_left_in_the_buffer_does_not_raise_at_shutdown(self):
+        """The failure the pipeline tests above let through.
+
+        stdout is block-buffered when it is a pipe, so a report smaller than
+        the buffer never reaches the pipe while the command runs: the write
+        fails for the first time in the interpreter's shutdown flush, after
+        main() has returned, and prints "Exception ignored on flushing
+        sys.stdout" where no handler can see it.
+
+        Whether that happens depends on whether `head` exits before or after
+        the first flush, so the pipeline tests pass on one machine and fail on
+        another - whyskill, which has the same guard, passed locally and failed
+        on all three CI versions. This one removes the race by closing the read
+        end before deadweight starts, so the only write that can fail is the
+        flush main() does itself.
+        """
+        import os
+        import sys
+        import tempfile
+        from unittest import mock
+
+        from deadweight.cli import main
+
+        read_fd, write_fd = os.pipe()
+        os.close(read_fd)
+        writer = os.fdopen(write_fd, "w")
+
+        with tempfile.TemporaryDirectory() as empty:
+            with mock.patch.object(sys, "stdout", writer):
+                code = main(["--root", empty])
+        self.assertEqual(code, 0)
+
+        # Not decoration: if main() returned without flushing, the output is
+        # still sitting in this buffer and closing raises exactly what the
+        # shutdown flush would have. Asserting only on `code` would pass with
+        # the fix removed.
+        writer.close()
+
+
+if __name__ == "__main__":
+    unittest.main()

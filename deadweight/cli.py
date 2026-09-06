@@ -77,12 +77,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     try:
-        return _run(build_parser().parse_args(argv))
+        code = _run(build_parser().parse_args(argv))
+        # Flush *inside* the guard, not after it. stdout is block-buffered when
+        # it is a pipe, so a report smaller than the buffer never reaches the
+        # pipe while we are running: the write fails for the first time in the
+        # interpreter's shutdown flush, after this function has returned, and
+        # prints "Exception ignored on flushing sys.stdout" where nothing can
+        # catch it. Flushing here brings that failure back inside the try.
+        sys.stdout.flush()
+        return code
     except BrokenPipeError:
         # `deadweight | head`, or quitting `less` early, closes the pipe while
-        # we are still writing. That is normal; a traceback is not. Python
-        # flushes the standard streams at shutdown and would raise again, so
-        # stdout is pointed at devnull first. Recipe from the Python docs:
+        # we are still writing. That is normal; a traceback is not. Pointing
+        # the file descriptor at devnull means the shutdown flush writes the
+        # still-buffered remainder somewhere harmless rather than raising all
+        # over again. Recipe from the Python docs:
         # https://docs.python.org/3/library/signal.html#note-on-sigpipe
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
