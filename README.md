@@ -89,8 +89,11 @@ To run it from any directory, install it from that clone:
 pip install .        # or: pipx install .
 ```
 
-Requires Python 3.9+. Not on PyPI yet, so `pip install deadweight` by name does
-not work — install from the clone as above.
+Requires Python 3.9+.
+
+> **On PyPI it is `claude-deadweight`.** PyPI does not allow the bare name
+> `deadweight`, so `pip install claude-deadweight` is what installs it. The
+> command you type is still `deadweight`, and the import is still `deadweight`.
 
 ## Use
 

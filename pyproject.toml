@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "deadweight"
+name = "claude-deadweight"
 version = "0.1.0"
 description = "Find the parts of your Claude Code setup that cost context on every session and never do any work."
 readme = "README.md"
@@ -26,6 +26,8 @@ dependencies = []
 Homepage = "https://github.com/hjalti-hub/deadweight"
 Issues = "https://github.com/hjalti-hub/deadweight/issues"
 
+# The distribution is `claude-deadweight` because PyPI does not allow the
+# bare name; the import package and the command stay `deadweight`.
 [project.scripts]
 deadweight = "deadweight.cli:main"
 
