@@ -28,12 +28,27 @@ DEAD WEIGHT loaded every session, never called
 
   22,410 chars (~5,602 tokens) per session for nothing — 61% of the 36,500 you load
 
+LOADED ANYWAY never called, and no file of yours to delete
+  skill      anthropic-skills       4,483 chars  (~1,120 tok)   never used
+  agent      claude-code-guide      1,091 chars  (~272 tok)     never used
+  skill      design                 1,029 chars  (~257 tok)     never used
+  … and 9 more
+
+  8,900 chars (~2,225 tokens) per session.
+  Not counted above — delivered by Claude Code or a plugin at runtime,
+  so there is nothing on disk to remove.
+
 HOOKS wall-clock you pay on every run
   Stop          ~/.claude/stop-hook-git-check.sh   1,842 runs   4m 21s  avg 142ms
   PostToolUse   ~/.claude/format.sh                  611 runs   1m 02s  avg 101ms
 ```
 
 Then you delete what you never use, and get that context back.
+
+The catch, and the reason for the second section: most of what loads into a
+session is not a file you own. `deadweight` looks each name up on disk, and only
+counts something toward the headline when there is actually something to
+delete.
 
 Two commands to find out:
 
@@ -137,6 +152,12 @@ Claude Code itself recorded.
 - **Deferred tools are already cheap.** Claude Code lists them by name and loads
   schemas on demand, so 200 tools cost a few thousand characters, not hundreds of
   thousands. Don't go deleting tools expecting a windfall.
+- **"Nothing on disk" is a search, not an assertion.** Names are looked for
+  under `~/.claude/skills`, `~/.claude/agents`, installed plugins, and any
+  project directory that still resolves. Project paths are lossy, so a skill in
+  a repository that has since moved lands in `LOADED ANYWAY` even though you
+  could have deleted it. That understates what is recoverable, which is the
+  safe direction to be wrong in.
 - **Something rarely used may still be worth keeping.** This tells you the price;
   whether it's worth paying is your call. Sort by `cost_per_call` in the JSON if
   you want the borderline cases.

@@ -10,7 +10,7 @@ from typing import TextIO
 from .analyze import Item, Report
 from .transcripts import CHARS_PER_TOKEN
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 #: Below this many sessions, "never called" is not evidence of anything.
 MEANINGFUL_SESSIONS = 5
@@ -170,6 +170,34 @@ def render(
             )
         )
 
+    # The same reasoning, reached by looking rather than by hardcoding a list.
+    # This is usually the larger group: most of what a session loads arrives
+    # from the app, not from a file in your Claude directory.
+    elsewhere = report.dead_elsewhere
+    if elsewhere:
+        per_session = sum(i.chars * i.sessions_present for i in elsewhere) // max(
+            report.sessions, 1
+        )
+        top = sorted(elsewhere, key=lambda i: -i.chars)[:limit]
+        stream.write(
+            f"\n{st.bold('LOADED ANYWAY')} "
+            f"{st.dim('never called, and no file of yours to delete')}\n"
+        )
+        width = max(len(i.name) for i in top) + 2
+        for item in top:
+            stream.write(_row(st, item, width) + "\n")
+        hidden = len(elsewhere) - len(top)
+        if hidden > 0:
+            stream.write(st.dim(f"  … and {hidden} more\n"))
+        stream.write(
+            st.dim(
+                f"\n  {per_session:,} chars "
+                f"(~{per_session // CHARS_PER_TOKEN:,} tokens) per session.\n"
+                "  Not counted above — delivered by Claude Code or a plugin at runtime,\n"
+                "  so there is nothing on disk to remove.\n"
+            )
+        )
+
     if report.sessions < MEANINGFUL_SESSIONS:
         stream.write(
             st.yellow(
@@ -227,6 +255,7 @@ def render_json(report: Report, stream: TextIO | None = None) -> None:
             "projects": sorted(report.projects),
             "dead_items": len(report.dead),
             "dead_builtin_items": len(report.dead_builtins),
+            "dead_elsewhere_items": len(report.dead_elsewhere),
             "dead_chars_per_session": report.dead_chars_per_session,
             "dead_tokens_per_session": report.dead_chars_per_session // CHARS_PER_TOKEN,
             "total_chars_per_session": report.total_chars_per_session,
@@ -248,6 +277,9 @@ def render_json(report: Report, stream: TextIO | None = None) -> None:
                 "calls": i.calls,
                 "dead": i.is_dead,
                 "builtin": i.is_builtin,
+                # None when nothing was searched, or the kind is not a file.
+                "on_disk": i.on_disk,
+                "removable": i.is_removable_dead,
             }
             for i in report.items
         ],

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-deadweight"
-version = "0.1.1"
+version = "0.1.2"
 description = "Find the parts of your Claude Code setup that cost context on every session and never do any work."
 readme = "README.md"
 requires-python = ">=3.9"

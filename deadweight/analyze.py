@@ -64,6 +64,10 @@ class Item:
     calls: int = 0
     #: Sessions in which it was called at least once.
     sessions_used: int = 0
+    #: Whether a file for this was found under the Claude directories.
+    #: ``None`` when no claim can be made - nothing was searched, or the kind
+    #: is not one that lives in a file. Set by :mod:`deadweight.locate`.
+    on_disk: bool | None = None
 
     @property
     def label(self) -> str:
@@ -84,8 +88,19 @@ class Item:
 
     @property
     def is_removable_dead(self) -> bool:
-        """Unused *and* something the user could actually delete."""
-        return self.is_dead and not self.is_builtin
+        """Unused *and* something the user could actually delete.
+
+        ``on_disk is False`` means the name was looked for and not found, so
+        it arrives at runtime and no amount of deleting will remove it. That is
+        the common case, not the exception: most of what a session loads is
+        delivered by the app rather than read from your Claude directory.
+        """
+        return self.is_dead and not self.is_builtin and self.on_disk is not False
+
+    @property
+    def is_unlocatable_dead(self) -> bool:
+        """Unused, and there is no file to delete."""
+        return self.is_dead and not self.is_builtin and self.on_disk is False
 
     @property
     def calls_per_session(self) -> float:
@@ -142,6 +157,16 @@ class Report:
     def dead_builtins(self) -> list[Item]:
         """Unused, but nothing the user can do about it."""
         return [i for i in self.items if i.is_dead and i.is_builtin]
+
+    @property
+    def dead_elsewhere(self) -> list[Item]:
+        """Unused, but no file for them exists to delete.
+
+        Reported, and deliberately kept out of the headline: a saving nobody
+        can collect is not a saving. Same reasoning as :attr:`dead_builtins`,
+        applied to everything rather than to a hardcoded list of subagents.
+        """
+        return [i for i in self.items if i.is_unlocatable_dead]
 
     @property
     def used(self) -> list[Item]:

@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 
 from .analyze import build
+from .locate import annotate, find
 from .report import VERSION, render, render_json
-from .transcripts import load
+from .transcripts import claude_home, load
 
 EPILOG = """\
 examples:
@@ -107,6 +108,11 @@ def _run(args: argparse.Namespace) -> int:
         since_days=args.since,
     )
     report = build(sessions)
+
+    # Which of these actually exist as files decides what the report may claim
+    # is recoverable. Done here rather than in build() so the aggregation stays
+    # a pure function of the transcripts.
+    annotate(report, find(args.root or claude_home(), report.projects))
 
     if args.json:
         render_json(report)
