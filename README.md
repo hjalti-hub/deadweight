@@ -162,6 +162,12 @@ the same question. It reads your configuration and proves a skill *can't* fire â
 truncated descriptions, name collisions, shadowing. This one reads your history
 and shows what *doesn't* fire, and what that costs you.
 
+[whyrule](https://github.com/hjalti-hub/whyrule) applies the same static half to
+the instructions themselves: the CLAUDE.md and `.claude/rules/` files Claude
+loads every session, and the ones it never receives â€” text stripped before
+injection, imports resolving to nothing, rules that contradict each other once
+they are concatenated.
+
 Static proof, and empirical evidence.
 
 ## Contributing
