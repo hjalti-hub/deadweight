@@ -1,5 +1,9 @@
 # deadweight
 
+[![PyPI](https://img.shields.io/pypi/v/claude-deadweight)](https://pypi.org/project/claude-deadweight/)
+[![Python](https://img.shields.io/pypi/pyversions/claude-deadweight)](https://pypi.org/project/claude-deadweight/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 ### Your Claude Code setup charges rent. Some of it never shows up for work.
 
 Every skill, subagent and MCP server you install gets loaded into context at the
@@ -31,11 +35,11 @@ HOOKS wall-clock you pay on every run
 
 Then you delete what you never use, and get that context back.
 
-There is nothing to install to find out:
+Two commands to find out:
 
 ```bash
-git clone https://github.com/hjalti-hub/deadweight && cd deadweight
-python3 -m deadweight
+pip install claude-deadweight
+deadweight
 ```
 
 Zero dependencies. Nothing leaves your machine.
@@ -76,25 +80,25 @@ a local file reader.
 
 ## Install
 
-A clone is enough — run it as a module from inside the checkout:
+```bash
+pip install claude-deadweight      # or: pipx install claude-deadweight
+```
+
+Requires Python 3.9+.
+
+> **The package is `claude-deadweight`; everything else is `deadweight`.** PyPI
+> does not allow the bare name, so that prefix exists only on the install line.
+> The command you type is `deadweight`, and so is the import.
+
+**Or from a clone**, if you would rather read it before you point it at your
+history:
 
 ```bash
 git clone https://github.com/hjalti-hub/deadweight && cd deadweight
 python3 -m deadweight
 ```
 
-To run it from any directory, install it from that clone:
-
-```bash
-pip install .        # or: pipx install .
-```
-
-Requires Python 3.9+. Not on PyPI yet, so `pip install deadweight` by name does
-not work — install from the clone as above.
-
 ## Use
-
-Once installed you can drop the `python3 -m` prefix; from a clone, keep it.
 
 ```bash
 deadweight                     # weigh every session on this machine

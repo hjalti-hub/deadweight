@@ -5,9 +5,10 @@ name: release
 #     git tag v0.1.1 && git push origin v0.1.1
 #
 # Uses PyPI trusted publishing, so no API token is stored in this repository.
-# One-time setup on PyPI: Your projects -> deadweight -> Publishing -> Add a new
+# One-time setup on PyPI: Your projects -> claude-deadweight -> Publishing -> Add a new
 # publisher, GitHub, with owner `hjalti-hub`, repository `deadweight`, workflow
-# `release.yml`, environment `pypi`. Before the first release exists, add the
+# `release.yml`, environment `pypi`. The PyPI project name is
+# `claude-deadweight`. Before the first release exists, add the
 # same values under Account -> Publishing as a *pending* publisher.
 #
 # A PyPI version can never be reused or replaced. Everything that can be checked
@@ -73,7 +74,7 @@ jobs:
         # Reading local files should never require a dependency tree, and the
         # README says so. Keep it enforced.
         run: |
-          deps=$(/tmp/verify/bin/pip list --format=freeze | grep -v -E "^(pip|setuptools|wheel|deadweight)==" || true)
+          deps=$(/tmp/verify/bin/pip list --format=freeze | grep -v -E "^(pip|setuptools|wheel|claude[-_]deadweight)==" || true)
           if [ -n "$deps" ]; then
             echo "::error::unexpected runtime dependencies: $deps"
             exit 1

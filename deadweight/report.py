@@ -10,7 +10,7 @@ from typing import TextIO
 from .analyze import Item, Report
 from .transcripts import CHARS_PER_TOKEN
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 #: Below this many sessions, "never called" is not evidence of anything.
 MEANINGFUL_SESSIONS = 5
